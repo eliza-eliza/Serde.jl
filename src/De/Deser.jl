@@ -320,6 +320,43 @@ function deser(
     return map(x -> deser(eltype(T), x), data)
 end
 
+function deser(
+    ::ArrayType,
+    ::Type{R},
+    data::D
+)::R where {R<:Tuple, D<:AbstractVector}
+    if R isa UnionAll
+        try
+            type = typeof(data[1])
+            out = Tuple(map(value -> deser(type, value), data))
+            return R(out)
+        catch e
+            if e isa MethodError
+                throw("WrongType: cannot convert $(data) to $(R)")
+            else
+                rethrow(e)
+            end
+        end
+    end
+
+    if length(R.parameters) != length(data)
+        throw("WrongType: cannot convert $(data) to $(R)")
+    end
+
+    out = [deser(t, v) for (v, t) in zip(data, R.parameters)]
+    
+    return R(out)
+end
+
+
+function deser(
+    ::ArrayType, 
+    ::Type{Tuple}, 
+    data::D
+)::Tuple where {D<:AbstractVector}
+    return Tuple(data)
+end
+
 """
     Serde.custom_name(::Type{T}, ::Val{x}) -> x
 
